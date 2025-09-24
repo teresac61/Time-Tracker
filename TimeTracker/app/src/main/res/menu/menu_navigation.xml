@@ -15,6 +15,10 @@
         android:title="Reports"/>
 
     <item
+        android:id="@+id/settings_fragment"
+        android:title="@string/title_settings"/>
+
+    <item
         android:id="@+id/read_tag_activity"
         android:title="Read Tag"/>
 

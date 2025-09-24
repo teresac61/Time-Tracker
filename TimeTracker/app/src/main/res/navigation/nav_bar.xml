@@ -28,6 +28,12 @@
         android:label="Reports"
         tools:layout="@layout/fragment_report" />
 
+    <fragment
+        android:id="@+id/settings_fragment"
+        android:name="com.cs446.group18.timetracker.ui.SettingsFragment"
+        android:label="@string/title_settings"
+        tools:layout="@layout/fragment_settings" />
+
     <activity
         android:id="@+id/read_tag_activity"
         android:name="com.cs446.group18.timetracker.ui.NFCReadActivity"
