@@ -3,6 +3,7 @@ package com.cs446.group18.timetracker.ui;
 import android.annotation.SuppressLint;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -10,6 +11,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.GridView;
 import android.widget.LinearLayout;
@@ -36,6 +38,7 @@ import com.cs446.group18.timetracker.entity.Geolocation;
 import com.cs446.group18.timetracker.entity.TimeEntry;
 import com.cs446.group18.timetracker.utils.AbstractFactory;
 import com.cs446.group18.timetracker.utils.ConcreteFactory;
+import com.cs446.group18.timetracker.utils.OpenAIDescriptionGenerator;
 import com.cs446.group18.timetracker.vm.EventListViewModelFactory;
 import com.cs446.group18.timetracker.vm.EventViewModel;
 import com.cs446.group18.timetracker.vm.GeolocationViewModel;
@@ -96,33 +99,8 @@ public class EventListFragment extends Fragment implements EventListAdapter.OnEv
                 list.setAdapter(iconAdapter);
 
                 final EditText eventNameText = promptView.findViewById(R.id.event_name);
-                final EditText eventDescriptionText = promptView.findViewById(R.id.event_description);
                 builder.setView(promptView)
-                        .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                            public void onClick(DialogInterface dialog, int id) {
-                                String eventName = eventNameText.getText().toString();
-                                String eventDescription = eventDescriptionText.getText().toString();
-                                // get selected icon
-                                int selectedIcon = iconAdapter.getSelected();
-                                try {
-                                    viewModel.insert(new Event(eventName, eventDescription, selectedIcon));
-                                    Toast.makeText(eventListView.getContext(), "Add new event: " + eventName, Toast.LENGTH_SHORT).show();
-                                } catch (Exception e) {
-                                    dialog.dismiss();
-                                    AlertDialog.Builder errorBuilder = new AlertDialog.Builder(getActivity());
-                                    errorBuilder.setPositiveButton("OK",
-                                            new DialogInterface.OnClickListener() {
-                                                public void onClick(DialogInterface dialog, int id) {
-                                                    dialog.dismiss();
-                                                }
-                                            });
-                                    errorBuilder.setTitle("Error");
-                                    errorBuilder.setMessage("Please enter a valid input");
-                                    AlertDialog error = errorBuilder.create();
-                                    error.show();
-                                }
-                            }
-                        })
+                        .setPositiveButton("OK", null)
                         .setNegativeButton("Cancel",
                                 new DialogInterface.OnClickListener() {
                                     public void onClick(DialogInterface dialog, int id) {
@@ -131,6 +109,47 @@ public class EventListFragment extends Fragment implements EventListAdapter.OnEv
                                 });
 
                 AlertDialog dialog = builder.create();
+                dialog.setOnShowListener(dialogInterface -> {
+                    final Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                    positiveButton.setOnClickListener(view1 -> {
+                        String eventName = eventNameText.getText().toString().trim();
+                        if (TextUtils.isEmpty(eventName)) {
+                            eventNameText.setError(getString(R.string.error_event_name_required));
+                            return;
+                        }
+
+                        int selectedIcon = iconAdapter.getSelected();
+                        if (selectedIcon == -1 && !iconList.isEmpty()) {
+                            selectedIcon = iconList.get(0);
+                        }
+
+                        if (getContext() == null) {
+                            positiveButton.setEnabled(true);
+                            return;
+                        }
+
+                        positiveButton.setEnabled(false);
+                        Toast.makeText(getContext(), getString(R.string.toast_generating_event_description), Toast.LENGTH_SHORT).show();
+
+                        final int resolvedIcon = selectedIcon;
+                        final String finalEventName = eventName;
+                        OpenAIDescriptionGenerator.generateDescription(eventName, description -> {
+                            if (!isAdded()) {
+                                positiveButton.setEnabled(true);
+                                return;
+                            }
+
+                            Event event = new Event(finalEventName, description, resolvedIcon);
+                            viewModel.insert(event);
+
+                            if (getContext() != null) {
+                                Toast.makeText(getContext(), getString(R.string.toast_event_created, finalEventName), Toast.LENGTH_SHORT).show();
+                            }
+
+                            dialog.dismiss();
+                        });
+                    });
+                });
                 dialog.show();
             }
         });
@@ -161,37 +180,12 @@ public class EventListFragment extends Fragment implements EventListAdapter.OnEv
 
 
                     final EditText eventNameText = promptView.findViewById(R.id.event_name);
-                    final EditText eventDescriptionText = promptView.findViewById(R.id.event_description);
+                    Event existingEvent = eventListAdapter.getEventAt(viewHolder.getAdapterPosition());
+                    if (existingEvent != null) {
+                        eventNameText.setText(existingEvent.getEventName());
+                    }
                     builder.setView(promptView)
-                            .setPositiveButton("OK", new DialogInterface.OnClickListener() {
-                                public void onClick(DialogInterface dialog, int id) {
-                                    int pos = viewHolder.getAdapterPosition();
-                                    String eventName = eventNameText.getText().toString();
-                                    String eventDescription = eventDescriptionText.getText().toString();
-                                    // get selected icon
-                                    int selectedIcon = iconAdapter.getSelected();
-                                    try {
-                                        Event event = new Event(eventName, eventDescription, selectedIcon);
-                                        event.setEventId(eventId);
-                                        viewModel.update(event);
-                                        Toast.makeText(eventListView.getContext(), "Event Update", Toast.LENGTH_SHORT).show();
-
-                                    } catch (Exception e) {
-                                        dialog.dismiss();
-                                        AlertDialog.Builder errorBuilder = new AlertDialog.Builder(getActivity());
-                                        errorBuilder.setPositiveButton("OK",
-                                                new DialogInterface.OnClickListener() {
-                                                    public void onClick(DialogInterface dialog, int id) {
-                                                        dialog.dismiss();
-                                                    }
-                                                });
-                                        errorBuilder.setTitle("Error");
-                                        errorBuilder.setMessage("Please enter a valid input");
-                                        AlertDialog error = errorBuilder.create();
-                                        error.show();
-                                    }
-                                }
-                            })
+                            .setPositiveButton("OK", null)
                             .setNegativeButton("Cancel",
                                     new DialogInterface.OnClickListener() {
                                         public void onClick(DialogInterface dialog, int id) {
@@ -210,6 +204,53 @@ public class EventListFragment extends Fragment implements EventListAdapter.OnEv
                                     });
 
                     AlertDialog dialog = builder.create();
+                    dialog.setOnShowListener(dialogInterface -> {
+                        final Button positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+                        positiveButton.setOnClickListener(view1 -> {
+                            String eventName = eventNameText.getText().toString().trim();
+                            if (TextUtils.isEmpty(eventName)) {
+                                eventNameText.setError(getString(R.string.error_event_name_required));
+                                return;
+                            }
+
+                            int selectedIcon = iconAdapter.getSelected();
+                            if (selectedIcon == -1) {
+                                Event currentEvent = eventListAdapter.getEventAt(viewHolder.getAdapterPosition());
+                                if (currentEvent != null) {
+                                    selectedIcon = currentEvent.getIcon();
+                                } else if (!iconList.isEmpty()) {
+                                    selectedIcon = iconList.get(0);
+                                }
+                            }
+
+                            if (getContext() == null) {
+                                positiveButton.setEnabled(true);
+                                return;
+                            }
+
+                            positiveButton.setEnabled(false);
+                            Toast.makeText(getContext(), getString(R.string.toast_generating_event_description), Toast.LENGTH_SHORT).show();
+
+                            final int resolvedIcon = selectedIcon;
+                            final String finalEventName = eventName;
+                            OpenAIDescriptionGenerator.generateDescription(eventName, description -> {
+                                if (!isAdded()) {
+                                    positiveButton.setEnabled(true);
+                                    return;
+                                }
+
+                                Event event = new Event(finalEventName, description, resolvedIcon);
+                                event.setEventId(eventId);
+                                viewModel.update(event);
+
+                                if (getContext() != null) {
+                                    Toast.makeText(getContext(), getString(R.string.toast_event_updated, finalEventName), Toast.LENGTH_SHORT).show();
+                                }
+
+                                dialog.dismiss();
+                            });
+                        });
+                    });
                     dialog.show();
                 }
 
