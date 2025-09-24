@@ -17,6 +17,8 @@ android {
         versionCode 1
         versionName "1.0"
         resValue "string", "google_maps_api_key", apikeyProperties['API_KEY']
+        def openAiKey = apikeyProperties.getProperty("OPENAI_API_KEY", "")
+        buildConfigField "String", "OPENAI_API_KEY", "\"${openAiKey}\""
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

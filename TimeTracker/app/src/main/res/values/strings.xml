@@ -17,4 +17,9 @@
     <string name="timeline_start">Timeline start</string>
     <string name="timeline_no_events">No events found</string>
     <string name="no_data">No data availble.</string>
+    <string name="prompt_generated_description_notice">A short description will be generated automatically based on the selected event type.</string>
+    <string name="toast_generating_event_description">Generating description…</string>
+    <string name="toast_event_created">Add new event: %1$s</string>
+    <string name="toast_event_updated">Event updated: %1$s</string>
+    <string name="error_event_name_required">Please enter an event name.</string>
 </resources>
